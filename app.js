@@ -998,3 +998,27 @@ function changeTheme(theme) {
 if (document.getElementById('createTestTab')) {
     // Don't auto-add question, let user add manually
 }
+
+// Export functions to global scope for onclick handlers in HTML
+// This is necessary because app.js is now an ES6 module
+window.navigateTo = navigateTo;
+window.submitJoinCode = submitJoinCode;
+window.submitJoinDetails = submitJoinDetails;
+window.navigateQuestion = navigateQuestion;
+window.submitQuiz = submitQuiz;
+window.switchAuthTab = switchAuthTab;
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.handleLogout = handleLogout;
+window.switchDashboardTab = switchDashboardTab;
+window.addQuestion = addQuestion;
+window.deleteQuestion = deleteQuestion;
+window.addOption = addOption;
+window.deleteOption = deleteOption;
+window.handleCreateTest = handleCreateTest;
+window.deleteTest = deleteTest;
+window.viewResults = viewResults;
+window.switchResultsTab = switchResultsTab;
+window.loadProfile = loadProfile;
+window.changeTheme = changeTheme;
+
