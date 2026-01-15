@@ -11,11 +11,14 @@ const state = {
     timeRemaining: 0,
     tabSwitchCount: 0,
     testData: [],
-    questionCount: 0
+    questionCount: 0,
+    isJoiner: false,
+    quizStatusCheckInterval: null
 };
 
 // Constants
 const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
+const QUIZ_STATUS_POLL_INTERVAL = 3000; // 3 seconds
 
 // API Configuration - Update this URL to match your backend deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
@@ -33,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply saved theme
     const theme = localStorage.getItem('theme') || 'light';
     document.body.classList.toggle('dark-theme', theme === 'dark');
+    updateThemeToggleButton();
     
     // Setup anti-cheat listeners
     setupAntiCheat();
@@ -48,6 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Navigation
 function navigateTo(pageId) {
+    // Clear quiz status polling if active
+    if (state.quizStatusCheckInterval) {
+        clearInterval(state.quizStatusCheckInterval);
+        state.quizStatusCheckInterval = null;
+    }
+    
     // Hide all pages
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
@@ -76,13 +86,13 @@ function showAlert(message, type = 'success') {
     alert.className = `alert ${type}`;
     
     const icons = {
-        success: '✓',
-        error: '✕',
-        warning: '⚠'
+        success: '<i class="fas fa-check-circle"></i>',
+        error: '<i class="fas fa-times-circle"></i>',
+        warning: '<i class="fas fa-exclamation-triangle"></i>'
     };
     
     alert.innerHTML = `
-        <span class="alert-icon">${icons[type] || '✓'}</span>
+        <span class="alert-icon">${icons[type] || icons.success}</span>
         <span class="alert-message">${message}</span>
     `;
     
@@ -117,6 +127,7 @@ function submitJoinDetails(event) {
     
     // Save participant details
     state.participant = { name, roll, branch };
+    state.isJoiner = true;
     
     // Fetch quiz and start
     fetchQuiz();
@@ -141,6 +152,13 @@ async function fetchQuiz() {
         
         const joinData = await joinResponse.json();
         state.currentQuiz = joinData.currentQuiz;
+        
+        // Check if quiz has started
+        if (!state.currentQuiz.isActive) {
+            // Show waiting screen
+            showWaitingScreen();
+            return;
+        }
         
         // Fetch questions separately
         const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
@@ -172,6 +190,35 @@ async function fetchQuiz() {
         showAlert(error.message || 'Failed to load quiz', 'error');
         navigateTo('joinPage');
     }
+}
+
+function showWaitingScreen() {
+    navigateTo('waitingPage');
+    
+    // Poll for quiz status every 3 seconds
+    state.quizStatusCheckInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/quiz/status/${state.quizCode}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.isActive) {
+                    // Quiz has started, clear interval and fetch quiz
+                    clearInterval(state.quizStatusCheckInterval);
+                    state.quizStatusCheckInterval = null;
+                    
+                    try {
+                        await fetchQuiz();
+                    } catch (error) {
+                        // If fetchQuiz fails, restart polling
+                        showAlert('Failed to load quiz, retrying...', 'error');
+                        showWaitingScreen();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking quiz status:', error);
+        }
+    }, QUIZ_STATUS_POLL_INTERVAL);
 }
 
 function startQuiz() {
@@ -322,16 +369,29 @@ async function submitQuiz(autoSubmit = false) {
 function showResults(score, total) {
     navigateTo('resultsPage');
     
-    const percentage = Math.round((score / total) * 100);
-    
-    document.getElementById('scorePercent').textContent = `${percentage}%`;
-    document.getElementById('scoreValue').textContent = score;
-    document.getElementById('totalQuestions').textContent = total;
+    if (state.isJoiner) {
+        // For joiners, show only thank you message
+        document.getElementById('resultsTitle').textContent = 'Thanks for joining!';
+        document.getElementById('scoreDisplay').style.display = 'none';
+        document.getElementById('thankYouMessage').style.display = 'block';
+    } else {
+        // For creators/hosts, show full results
+        document.getElementById('resultsTitle').textContent = 'Quiz Complete!';
+        document.getElementById('scoreDisplay').style.display = 'block';
+        document.getElementById('thankYouMessage').style.display = 'none';
+        
+        const percentage = Math.round((score / total) * 100);
+        
+        document.getElementById('scorePercent').textContent = `${percentage}%`;
+        document.getElementById('scoreValue').textContent = score;
+        document.getElementById('totalQuestions').textContent = total;
+    }
     
     // Reset quiz state
     state.answers = {};
     state.currentQuestionIndex = 0;
     state.tabSwitchCount = 0;
+    state.isJoiner = false;
 }
 
 // Anti-Cheat System
@@ -529,6 +589,14 @@ function addQuestion() {
                     <input type="text" class="option-text" required placeholder="Option 2">
                     <button type="button" onclick="deleteOption(this)">×</button>
                 </div>
+                <div class="option-item">
+                    <input type="text" class="option-text" required placeholder="Option 3">
+                    <button type="button" onclick="deleteOption(this)">×</button>
+                </div>
+                <div class="option-item">
+                    <input type="text" class="option-text" required placeholder="Option 4">
+                    <button type="button" onclick="deleteOption(this)">×</button>
+                </div>
             </div>
             <button type="button" class="btn-add-option" onclick="addOption(${state.questionCount})">+ Add Option</button>
         </div>
@@ -627,7 +695,8 @@ async function handleCreateTest(event) {
             code: data.code,
             title,
             description,
-            timeLimit
+            timeLimit,
+            isActive: false
         });
         localStorage.setItem('myQuizzes', JSON.stringify(savedTests));
         
@@ -665,12 +734,13 @@ async function loadTests() {
             <div class="test-card">
                 <div class="test-card-header">
                     <div class="test-card-title">
-                        <h3>${test.title}</h3>
+                        <h3>${test.title} <span class="test-status-badge ${test.isActive ? 'active' : 'waiting'}">${test.isActive ? 'Active' : 'Not Started'}</span></h3>
                         <p>${test.description || 'No description'}</p>
                         <p><strong>Code:</strong> ${test.code}</p>
                     </div>
                 </div>
                 <div class="test-card-actions">
+                    ${!test.isActive ? `<button class="btn btn-success" onclick="startQuizAsHost('${test.code}')">Start Quiz</button>` : ''}
                     <button class="btn btn-primary" onclick="viewResults('${test.code}')">Results</button>
                     <button class="btn btn-danger" onclick="deleteTest('${test.code}')">Delete</button>
                 </div>
@@ -679,6 +749,36 @@ async function loadTests() {
     } catch (error) {
         container.innerHTML = '<p>Failed to load tests</p>';
         showAlert(error.message || 'Failed to load tests', 'error');
+    }
+}
+
+async function startQuizAsHost(code) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/quiz/start/${code}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to start quiz');
+        }
+        
+        // Update localStorage
+        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
+        const updatedTests = savedTests.map(test => {
+            if (test.code === code) {
+                return { ...test, isActive: true };
+            }
+            return test;
+        });
+        localStorage.setItem('myQuizzes', JSON.stringify(updatedTests));
+        
+        showAlert('Quiz started successfully!', 'success');
+        loadTests();
+    } catch (error) {
+        showAlert(error.message || 'Failed to start quiz', 'error');
     }
 }
 
@@ -848,15 +948,33 @@ function loadProfile() {
         .slice(0, 2);
     document.getElementById('avatarInitials').textContent = initials;
     
-    // Set theme select
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    document.getElementById('themeSelect').value = currentTheme;
+    // Update theme toggle button
+    updateThemeToggleButton();
 }
 
-function changeTheme(theme) {
-    localStorage.setItem('theme', theme);
-    document.body.classList.toggle('dark-theme', theme === 'dark');
-    showAlert(`Theme changed to ${theme}`, 'success');
+function toggleTheme() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('theme', newTheme);
+    document.body.classList.toggle('dark-theme', newTheme === 'dark');
+    updateThemeToggleButton();
+    showAlert(`Theme changed to ${newTheme}`, 'success');
+}
+
+function updateThemeToggleButton() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const toggleBtn = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    
+    if (toggleBtn) {
+        if (currentTheme === 'dark') {
+            toggleBtn.classList.add('active');
+            if (themeIcon) themeIcon.className = 'fas fa-sun';
+        } else {
+            toggleBtn.classList.remove('active');
+            if (themeIcon) themeIcon.className = 'fas fa-moon';
+        }
+    }
 }
 
 // Initialize first question form on load
