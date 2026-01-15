@@ -51,6 +51,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Navigation
 function navigateTo(pageId) {
+    // Clear quiz status polling if active
+    if (state.quizStatusCheckInterval) {
+        clearInterval(state.quizStatusCheckInterval);
+        state.quizStatusCheckInterval = null;
+    }
+    
     // Hide all pages
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
@@ -960,12 +966,6 @@ function updateThemeToggleButton() {
             if (themeIcon) themeIcon.className = 'fas fa-moon';
         }
     }
-}
-
-function changeTheme(theme) {
-    localStorage.setItem('theme', theme);
-    document.body.classList.toggle('dark-theme', theme === 'dark');
-    showAlert(`Theme changed to ${theme}`, 'success');
 }
 
 // Initialize first question form on load

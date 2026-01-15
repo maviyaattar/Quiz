@@ -42,17 +42,20 @@ body.dark-theme {
 /* Page Container */
 #app {
     min-height: 100vh;
-    padding-bottom: 60px; /* Space for footer */
+    display: flex;
+    flex-direction: column;
 }
 
 .page {
     display: none;
     min-height: calc(100vh - 60px);
     animation: fadeIn 0.3s ease-in;
+    flex: 1;
 }
 
 .page.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 @keyframes fadeIn {
@@ -1114,10 +1117,8 @@ body.dark-theme {
 
 /* Footer */
 .app-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    margin-top: auto;
     background: var(--surface);
     padding: 1rem;
     text-align: center;
