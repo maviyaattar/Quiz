@@ -205,10 +205,10 @@ function submitJoinDetails(event) {
     state.participant = { name, roll, branch };
     
     // Fetch quiz from mock data
-    fetchQuizMock();
+    fetchQuiz();
 }
 
-function fetchQuizMock() {
+function fetchQuiz() {
     try {
         showAlert('Loading quiz...', 'success');
         
@@ -235,11 +235,6 @@ function fetchQuizMock() {
         showAlert(error.message || 'Failed to load quiz', 'error');
         navigateTo('joinPage');
     }
-}
-
-async function fetchQuiz() {
-    // Replaced with mock implementation
-    fetchQuizMock();
 }
 
 function startQuiz() {
