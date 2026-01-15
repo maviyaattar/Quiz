@@ -18,6 +18,7 @@ const state = {
 
 // Constants
 const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
+const QUIZ_STATUS_POLL_INTERVAL = 3000; // 3 seconds
 
 // API Configuration - Update this URL to match your backend deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
@@ -203,13 +204,21 @@ function showWaitingScreen() {
                 if (data.isActive) {
                     // Quiz has started, clear interval and fetch quiz
                     clearInterval(state.quizStatusCheckInterval);
-                    fetchQuiz();
+                    state.quizStatusCheckInterval = null;
+                    
+                    try {
+                        await fetchQuiz();
+                    } catch (error) {
+                        // If fetchQuiz fails, restart polling
+                        showAlert('Failed to load quiz, retrying...', 'error');
+                        showWaitingScreen();
+                    }
                 }
             }
         } catch (error) {
             console.error('Error checking quiz status:', error);
         }
-    }, 3000);
+    }, QUIZ_STATUS_POLL_INTERVAL);
 }
 
 function startQuiz() {
