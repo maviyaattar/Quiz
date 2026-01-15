@@ -169,7 +169,7 @@ function showAlert(message, type = 'success') {
     
     alert.innerHTML = `
         <span class="alert-icon">${icons[type] || '✓'}</span>
-        <span class="alert-message">${message}</span>
+        <span class="alert-message">${escapeHtml(message)}</span>
     `;
     
     alertContainer.appendChild(alert);
@@ -178,6 +178,13 @@ function showAlert(message, type = 'success') {
     setTimeout(() => {
         alert.remove();
     }, 5000);
+}
+
+// Helper function to escape HTML and prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Join Flow
@@ -468,7 +475,7 @@ function switchAuthTab(type) {
     }
 }
 
-async function handleLogin(event) {
+function handleLogin(event) {
     event.preventDefault();
     
     const email = document.getElementById('loginEmail').value;
@@ -495,7 +502,7 @@ async function handleLogin(event) {
     }
 }
 
-async function handleRegister(event) {
+function handleRegister(event) {
     event.preventDefault();
     
     const name = document.getElementById('registerName').value;
@@ -512,6 +519,8 @@ async function handleRegister(event) {
         }
         
         // Add new user
+        // Note: In a demo app, passwords are stored in plain text for simplicity.
+        // In production, always hash passwords before storing.
         const newUser = { email, password, name };
         users.push(newUser);
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
@@ -636,7 +645,7 @@ function deleteOption(button) {
     }
 }
 
-async function handleCreateTest(event) {
+function handleCreateTest(event) {
     event.preventDefault();
     
     const title = document.getElementById('testTitle').value;
@@ -698,7 +707,7 @@ async function handleCreateTest(event) {
 }
 
 // My Tests
-async function loadTests() {
+function loadTests() {
     const container = document.getElementById('testsContainer');
     container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
     
@@ -719,15 +728,15 @@ async function loadTests() {
             <div class="test-card">
                 <div class="test-card-header">
                     <div class="test-card-title">
-                        <h3>${test.title}</h3>
-                        <p>${test.description || 'No description'}</p>
-                        <p><strong>Code:</strong> ${test.code}</p>
+                        <h3>${escapeHtml(test.title)}</h3>
+                        <p>${escapeHtml(test.description || 'No description')}</p>
+                        <p><strong>Code:</strong> ${escapeHtml(test.code)}</p>
                         <p><strong>Questions:</strong> ${test.questions.length}</p>
                     </div>
                 </div>
                 <div class="test-card-actions">
-                    <button class="btn btn-primary" onclick="viewResults('${test.code}')">Results</button>
-                    <button class="btn btn-danger" onclick="deleteTest('${test.code}')">Delete</button>
+                    <button class="btn btn-primary" onclick="viewResults('${escapeHtml(test.code)}')">Results</button>
+                    <button class="btn btn-danger" onclick="deleteTest('${escapeHtml(test.code)}')">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -737,7 +746,7 @@ async function loadTests() {
     }
 }
 
-async function deleteTest(code) {
+function deleteTest(code) {
     if (!confirm('Are you sure you want to delete this test?')) return;
     
     try {
@@ -760,7 +769,7 @@ async function deleteTest(code) {
     }
 }
 
-async function viewResults(code) {
+function viewResults(code) {
     navigateTo('testResultsPage');
     
     try {
@@ -821,9 +830,9 @@ function displayLeaderboard(leaderboard) {
                     ${leaderboard.map((entry, index) => `
                         <tr>
                             <td>${index + 1}</td>
-                            <td>${entry.name}</td>
+                            <td>${escapeHtml(entry.name)}</td>
                             <td>${entry.score}/${entry.total}</td>
-                            <td>${entry.time || 'N/A'}</td>
+                            <td>${escapeHtml(entry.time || 'N/A')}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -854,9 +863,9 @@ function displayParticipants(participants) {
                 <tbody>
                     ${participants.map(p => `
                         <tr>
-                            <td>${p.name}</td>
-                            <td>${p.roll}</td>
-                            <td>${p.branch}</td>
+                            <td>${escapeHtml(p.name)}</td>
+                            <td>${escapeHtml(p.roll)}</td>
+                            <td>${escapeHtml(p.branch)}</td>
                             <td>${p.score}/${p.total}</td>
                         </tr>
                     `).join('')}
