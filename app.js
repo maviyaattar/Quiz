@@ -45,6 +45,7 @@ const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
 // API Configuration
 // Set USE_MOCK_BACKEND to true to use mock data for development/testing
 // Set to false to use the real backend API
+// CURRENT SETTING: false (uses real backend - change to true for local development without a server)
 const USE_MOCK_BACKEND = false;
 
 // Update this URL to match your backend deployment

@@ -23,7 +23,7 @@ const mockStorage = {
             id: 1,
             name: 'Demo User',
             email: 'demo@example.com',
-            password: 'demo123' // In real app, this would be hashed
+            password: 'demo123' // NOTE: In a real application, this would be hashed using bcrypt or similar
         }
     ],
     quizzes: [
@@ -120,7 +120,7 @@ export async function mockRegister(name, email, password) {
         id: mockStorage.users.length + 1,
         name,
         email,
-        password // In real app, this would be hashed
+        password // NOTE: In a real application, this would be hashed before storage
     };
     
     mockStorage.users.push(newUser);
@@ -150,16 +150,22 @@ export async function mockCreateQuiz(quizData, token) {
     }
     
     const code = generateQuizCode();
+    
+    // Validate timeLimit
+    const validTimeLimit = typeof quizData.timeLimit === 'number' && quizData.timeLimit > 0 
+        ? quizData.timeLimit 
+        : 600; // Default to 10 minutes
+    
     const newQuiz = {
         id: code,
         code,
         title: quizData.title,
         description: quizData.description,
-        timeLimit: quizData.timeLimit,
+        timeLimit: validTimeLimit,
         creatorId: 1, // Mock creator
         isActive: true,
         startTime: new Date().toISOString(),
-        endTime: new Date(Date.now() + quizData.timeLimit * 1000).toISOString(),
+        endTime: new Date(Date.now() + validTimeLimit * 1000).toISOString(),
         questions: quizData.questions
     };
     
