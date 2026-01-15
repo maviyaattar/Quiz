@@ -16,13 +16,13 @@ const state = {
 
 // API Configuration - Update this URL to match your backend deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000/api' 
-    : 'https://quiz-backend-api.herokuapp.com/api';
+    ? 'http://localhost:5000' 
+    : 'https://quiz-backend-production-4aaf.up.railway.app';
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     // Check for saved auth token
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token');
     if (token) {
         state.currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
     }
@@ -123,8 +123,8 @@ async function fetchQuiz() {
     try {
         showAlert('Loading quiz...', 'success');
         
-        // API call to fetch quiz
-        const response = await fetch(`${API_BASE_URL}/quiz/join/${state.quizCode}`, {
+        // API call to join quiz
+        const joinResponse = await fetch(`${API_BASE_URL}/api/quiz/join/${state.quizCode}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -132,14 +132,36 @@ async function fetchQuiz() {
             body: JSON.stringify(state.participant)
         });
         
-        if (!response.ok) {
+        if (!joinResponse.ok) {
             throw new Error('Quiz not found or not active');
         }
         
-        const data = await response.json();
-        state.currentQuiz = data.quiz;
-        state.questions = data.questions;
-        state.timeRemaining = data.quiz.timeLimit;
+        const joinData = await joinResponse.json();
+        state.currentQuiz = joinData.currentQuiz;
+        
+        // Fetch questions separately
+        const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!questionsResponse.ok) {
+            throw new Error('Failed to load questions');
+        }
+        
+        const questionsData = await questionsResponse.json();
+        state.questions = questionsData.questions;
+        
+        // Set timer from server endTime
+        if (state.currentQuiz.endTime) {
+            const endTime = new Date(state.currentQuiz.endTime).getTime();
+            const now = Date.now();
+            state.timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+        } else {
+            state.timeRemaining = 600; // fallback to 10 minutes
+        }
         
         // Start quiz
         startQuiz();
@@ -255,18 +277,23 @@ async function submitQuiz(autoSubmit = false) {
     }
     
     try {
-        // Submit to backend - score calculation happens server-side for security
-        // The server will validate answers and calculate the actual score
-        const response = await fetch(`${API_BASE_URL}/quiz/submit`, {
+        // Convert answers object to array format
+        const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => ({
+            questionIndex: parseInt(questionIndex),
+            selectedOption: optionIndex
+        }));
+        
+        // Submit to backend with correct payload structure
+        const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                quizCode: state.quizCode,
-                participant: state.participant,
-                answers: state.answers,
-                tabSwitches: state.tabSwitchCount
+                name: state.participant.name,
+                branch: state.participant.branch,
+                rollNo: state.participant.roll,
+                answers: answersArray
             })
         });
         
@@ -368,7 +395,7 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -383,7 +410,7 @@ async function handleLogin(event) {
         const data = await response.json();
         
         // Save auth data
-        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('token', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
         state.currentUser = data.user;
         
@@ -417,7 +444,7 @@ async function handleRegister(event) {
         const data = await response.json();
         
         // Save auth data
-        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('token', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
         state.currentUser = data.user;
         
@@ -429,7 +456,7 @@ async function handleRegister(event) {
 }
 
 function handleLogout() {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('userData');
     state.currentUser = null;
     showAlert('Logged out successfully', 'success');
@@ -565,11 +592,11 @@ async function handleCreateTest(event) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/quiz/create`, {
+        const response = await fetch(`${API_BASE_URL}/api/quiz/create`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
             body: JSON.stringify({
                 title,
@@ -584,6 +611,16 @@ async function handleCreateTest(event) {
         }
         
         const data = await response.json();
+        
+        // Save to localStorage for tracking
+        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
+        savedTests.push({
+            code: data.code,
+            title: title,
+            description: description,
+            timeLimit: timeLimit
+        });
+        localStorage.setItem('myQuizzes', JSON.stringify(savedTests));
         
         showAlert(`Test created! Code: ${data.code}`, 'success');
         
@@ -605,25 +642,16 @@ async function loadTests() {
     container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
     
     try {
-        const response = await fetch(`${API_BASE_URL}/quiz/my-tests`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
+        // Load tests from localStorage since /api/quiz/my-tests doesn't exist
+        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
+        state.testData = savedTests;
         
-        if (!response.ok) {
-            throw new Error('Failed to load tests');
-        }
-        
-        const tests = await response.json();
-        state.testData = tests;
-        
-        if (tests.length === 0) {
+        if (savedTests.length === 0) {
             container.innerHTML = '<p>No tests created yet. Create your first test!</p>';
             return;
         }
         
-        container.innerHTML = tests.map(test => `
+        container.innerHTML = savedTests.map(test => `
             <div class="test-card">
                 <div class="test-card-header">
                     <div class="test-card-title">
@@ -631,17 +659,10 @@ async function loadTests() {
                         <p>${test.description || 'No description'}</p>
                         <p><strong>Code:</strong> ${test.code}</p>
                     </div>
-                    <span class="test-status ${test.isLive ? 'live' : 'not-live'}">
-                        ${test.isLive ? 'Live' : 'Not Live'}
-                    </span>
                 </div>
                 <div class="test-card-actions">
-                    <button class="btn btn-primary" onclick="viewResults('${test._id}')">Results</button>
-                    <button class="btn ${test.isLive ? 'btn-danger' : 'btn-success'}" 
-                            onclick="toggleTestStatus('${test._id}', ${!test.isLive})">
-                        ${test.isLive ? 'Stop' : 'Start'}
-                    </button>
-                    <button class="btn btn-danger" onclick="deleteTest('${test._id}')">Delete</button>
+                    <button class="btn btn-primary" onclick="viewResults('${test.code}')">Results</button>
+                    <button class="btn btn-danger" onclick="deleteTest('${test.code}')">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -651,42 +672,25 @@ async function loadTests() {
     }
 }
 
-async function toggleTestStatus(testId, newStatus) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/quiz/${testId}/status`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify({ isLive: newStatus })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to update test status');
-        }
-        
-        showAlert(`Test ${newStatus ? 'started' : 'stopped'} successfully`, 'success');
-        loadTests();
-    } catch (error) {
-        showAlert(error.message || 'Failed to update test status', 'error');
-    }
-}
-
-async function deleteTest(testId) {
+async function deleteTest(code) {
     if (!confirm('Are you sure you want to delete this test?')) return;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/quiz/${testId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/quiz/delete/${code}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
         
         if (!response.ok) {
             throw new Error('Failed to delete test');
         }
+        
+        // Remove from localStorage
+        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
+        const updatedTests = savedTests.filter(test => test.code !== code);
+        localStorage.setItem('myQuizzes', JSON.stringify(updatedTests));
         
         showAlert('Test deleted successfully', 'success');
         loadTests();
@@ -695,23 +699,38 @@ async function deleteTest(testId) {
     }
 }
 
-async function viewResults(testId) {
+async function viewResults(code) {
     navigateTo('testResultsPage');
     
     try {
-        const response = await fetch(`${API_BASE_URL}/quiz/${testId}/results`, {
+        // Fetch leaderboard from correct endpoint
+        const leaderboardResponse = await fetch(`${API_BASE_URL}/api/quiz/leaderboard/${code}`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
         
-        if (!response.ok) {
-            throw new Error('Failed to load results');
+        if (!leaderboardResponse.ok) {
+            throw new Error('Failed to load leaderboard');
         }
         
-        const results = await response.json();
-        displayLeaderboard(results.leaderboard);
-        displayParticipants(results.participants);
+        const leaderboardData = await leaderboardResponse.json();
+        
+        // Fetch summary from correct endpoint
+        const summaryResponse = await fetch(`${API_BASE_URL}/api/quiz/summary/${code}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!summaryResponse.ok) {
+            throw new Error('Failed to load summary');
+        }
+        
+        const summaryData = await summaryResponse.json();
+        
+        displayLeaderboard(leaderboardData.leaderboard || []);
+        displayParticipants(summaryData.participants || []);
     } catch (error) {
         showAlert(error.message || 'Failed to load results', 'error');
     }
