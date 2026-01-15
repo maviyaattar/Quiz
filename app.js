@@ -284,7 +284,7 @@ async function submitQuiz(autoSubmit = false) {
         const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => {
             const parsedIndex = parseInt(questionIndex, 10);
             if (isNaN(parsedIndex)) {
-                throw new Error('Invalid question index');
+                throw new Error(`Invalid question index: ${questionIndex}`);
             }
             return {
                 questionIndex: parsedIndex,
@@ -625,9 +625,9 @@ async function handleCreateTest(event) {
         const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
         savedTests.push({
             code: data.code,
-            title: title,
-            description: description,
-            timeLimit: timeLimit
+            title,
+            description,
+            timeLimit
         });
         localStorage.setItem('myQuizzes', JSON.stringify(savedTests));
         
