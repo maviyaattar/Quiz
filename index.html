@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Maviya Attar Quiz App - Create and join interactive quizzes">
+    <title>Maviya Attar Quiz</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Main App Container -->
+    <div id="app">
+        <!-- Landing Page -->
+        <div id="landingPage" class="page active">
+            <header class="header">
+                <h1 class="brand">Maviya Attar</h1>
+                <p class="tagline">Interactive Quiz Platform</p>
+            </header>
+            <main class="landing-main">
+                <div class="card-container">
+                    <div class="option-card" id="joinCard">
+                        <div class="card-icon">📝</div>
+                        <h2>Join Quiz</h2>
+                        <p>Enter a code to participate in a quiz</p>
+                        <button class="btn btn-primary" onclick="navigateTo('joinPage')">Join Now</button>
+                    </div>
+                    <div class="option-card" id="createCard">
+                        <div class="card-icon">✨</div>
+                        <h2>Create Quiz</h2>
+                        <p>Login to create and manage quizzes</p>
+                        <button class="btn btn-secondary" onclick="navigateTo('loginPage')">Get Started</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Join Page - Enter Code -->
+        <div id="joinPage" class="page">
+            <header class="header">
+                <button class="back-btn" onclick="navigateTo('landingPage')">← Back</button>
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="form-main">
+                <div class="form-card">
+                    <h2>Join Quiz</h2>
+                    <form id="joinCodeForm" onsubmit="submitJoinCode(event)">
+                        <div class="form-group">
+                            <label for="quizCode">Quiz Code</label>
+                            <input type="text" id="quizCode" required placeholder="Enter 6-digit code" maxlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Continue</button>
+                    </form>
+                </div>
+            </main>
+        </div>
+
+        <!-- Join Page - Enter Details -->
+        <div id="joinDetailsPage" class="page">
+            <header class="header">
+                <button class="back-btn" onclick="navigateTo('joinPage')">← Back</button>
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="form-main">
+                <div class="form-card">
+                    <h2>Your Details</h2>
+                    <form id="joinDetailsForm" onsubmit="submitJoinDetails(event)">
+                        <div class="form-group">
+                            <label for="studentName">Name</label>
+                            <input type="text" id="studentName" required placeholder="Enter your name">
+                        </div>
+                        <div class="form-group">
+                            <label for="rollNumber">Roll Number</label>
+                            <input type="text" id="rollNumber" required placeholder="Enter roll number">
+                        </div>
+                        <div class="form-group">
+                            <label for="branch">Branch</label>
+                            <input type="text" id="branch" required placeholder="e.g., Computer Science">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Start Quiz</button>
+                    </form>
+                </div>
+            </main>
+        </div>
+
+        <!-- Quiz Page -->
+        <div id="quizPage" class="page">
+            <header class="quiz-header">
+                <div class="quiz-info">
+                    <h2 id="quizTitle">Quiz Title</h2>
+                    <div class="quiz-meta">
+                        <span id="questionCounter">Question 1 of 10</span>
+                    </div>
+                </div>
+                <div class="timer-container">
+                    <div class="timer" id="timer">
+                        <span id="timeLeft">10:00</span>
+                    </div>
+                </div>
+            </header>
+            <main class="quiz-main">
+                <div id="quizContent">
+                    <div class="question-card">
+                        <h3 id="questionText">Loading question...</h3>
+                        <div id="optionsContainer" class="options-container">
+                            <!-- Options will be dynamically loaded -->
+                        </div>
+                    </div>
+                    <div class="quiz-navigation">
+                        <button class="btn btn-secondary" id="prevBtn" onclick="navigateQuestion(-1)">Previous</button>
+                        <button class="btn btn-primary" id="nextBtn" onclick="navigateQuestion(1)">Next</button>
+                        <button class="btn btn-success" id="submitBtn" onclick="submitQuiz()" style="display:none;">Submit Quiz</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Results Page -->
+        <div id="resultsPage" class="page">
+            <header class="header">
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="results-main">
+                <div class="results-card">
+                    <div class="results-icon">🎉</div>
+                    <h2>Quiz Complete!</h2>
+                    <div class="score-display">
+                        <div class="score-circle">
+                            <span id="scorePercent">0%</span>
+                        </div>
+                        <p class="score-details">
+                            You scored <strong id="scoreValue">0</strong> out of <strong id="totalQuestions">0</strong>
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" onclick="navigateTo('landingPage')">Back to Home</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- Login/Register Page -->
+        <div id="loginPage" class="page">
+            <header class="header">
+                <button class="back-btn" onclick="navigateTo('landingPage')">← Back</button>
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="form-main">
+                <div class="form-card">
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchAuthTab('login')">Login</button>
+                        <button class="tab" onclick="switchAuthTab('register')">Register</button>
+                    </div>
+                    
+                    <!-- Login Form -->
+                    <form id="loginForm" class="auth-form active" onsubmit="handleLogin(event)">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required placeholder="Enter your email">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" required placeholder="Enter your password">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                    </form>
+
+                    <!-- Register Form -->
+                    <form id="registerForm" class="auth-form" onsubmit="handleRegister(event)">
+                        <div class="form-group">
+                            <label for="registerName">Name</label>
+                            <input type="text" id="registerName" required placeholder="Enter your name">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required placeholder="Enter your email">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Password</label>
+                            <input type="password" id="registerPassword" required placeholder="Create a password">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Register</button>
+                    </form>
+                </div>
+            </main>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page">
+            <header class="dashboard-header">
+                <h1 class="brand">Maviya Attar</h1>
+                <nav class="dashboard-nav">
+                    <button class="nav-btn active" onclick="switchDashboardTab('createTest')">Create Test</button>
+                    <button class="nav-btn" onclick="switchDashboardTab('myTests')">My Tests</button>
+                    <button class="nav-btn" onclick="switchDashboardTab('profile')">Profile</button>
+                </nav>
+            </header>
+
+            <!-- Create Test Tab -->
+            <div id="createTestTab" class="dashboard-tab active">
+                <main class="form-main">
+                    <div class="form-card">
+                        <h2>Create New Test</h2>
+                        <form id="createTestForm" onsubmit="handleCreateTest(event)">
+                            <div class="form-group">
+                                <label for="testTitle">Test Title</label>
+                                <input type="text" id="testTitle" required placeholder="Enter test title">
+                            </div>
+                            <div class="form-group">
+                                <label for="testDescription">Description</label>
+                                <textarea id="testDescription" rows="3" placeholder="Enter test description"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="testTime">Time Limit (seconds)</label>
+                                <input type="number" id="testTime" required placeholder="e.g., 600" min="60">
+                            </div>
+                            
+                            <div id="questionsContainer">
+                                <h3>Questions</h3>
+                                <!-- Questions will be added dynamically -->
+                            </div>
+                            
+                            <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Add Question</button>
+                            <button type="submit" class="btn btn-primary btn-block">Create Test</button>
+                        </form>
+                    </div>
+                </main>
+            </div>
+
+            <!-- My Tests Tab -->
+            <div id="myTestsTab" class="dashboard-tab">
+                <main class="tests-main">
+                    <h2>My Tests</h2>
+                    <div id="testsContainer">
+                        <div class="skeleton-loader">
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Profile Tab -->
+            <div id="profileTab" class="dashboard-tab">
+                <main class="profile-main">
+                    <div class="profile-card">
+                        <div class="profile-avatar" id="profileAvatar">
+                            <span id="avatarInitials">MA</span>
+                        </div>
+                        <h2 id="profileName">User Name</h2>
+                        <p id="profileEmail">user@example.com</p>
+                        
+                        <div class="profile-settings">
+                            <h3>Settings</h3>
+                            <div class="setting-item">
+                                <label for="themeSelect">Theme</label>
+                                <select id="themeSelect" onchange="changeTheme(this.value)">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-danger" onclick="handleLogout()">Logout</button>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Test Results Detail Page -->
+        <div id="testResultsPage" class="page">
+            <header class="header">
+                <button class="back-btn" onclick="switchDashboardTab('myTests')">← Back</button>
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="results-detail-main">
+                <div class="results-tabs">
+                    <button class="tab active" onclick="switchResultsTab('leaderboard')">Leaderboard</button>
+                    <button class="tab" onclick="switchResultsTab('participants')">Participants</button>
+                </div>
+                
+                <div id="leaderboardTab" class="results-tab active">
+                    <div id="leaderboardContent"></div>
+                </div>
+                
+                <div id="participantsTab" class="results-tab">
+                    <div id="participantsContent"></div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 404 Page -->
+        <div id="notFoundPage" class="page">
+            <header class="header">
+                <h1 class="brand">Maviya Attar</h1>
+            </header>
+            <main class="error-main">
+                <div class="error-card">
+                    <h1 class="error-code">404</h1>
+                    <h2>Page Not Found</h2>
+                    <p>The page you're looking for doesn't exist.</p>
+                    <button class="btn btn-primary" onclick="navigateTo('landingPage')">Go Home</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
