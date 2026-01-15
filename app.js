@@ -1,3 +1,28 @@
+// Import mock backend functions for development/testing
+import * as mockBackend from './mockBackend.js';
+
+/**
+ * QUIZ APPLICATION - BACKEND INTEGRATION GUIDE
+ * 
+ * This application supports both MOCK and REAL backend integration:
+ * 
+ * MOCK BACKEND (for development/testing):
+ * - Set USE_MOCK_BACKEND = true below
+ * - Uses mockBackend.js for all API calls
+ * - No server required, works entirely in browser
+ * - Sample data includes demo user (email: demo@example.com, password: demo123)
+ * - Sample quiz available with code: 123456
+ * 
+ * REAL BACKEND (for production):
+ * - Set USE_MOCK_BACKEND = false below
+ * - Update API_BASE_URL to your backend server
+ * - Requires running backend server with proper endpoints
+ * - All fetch() calls go to your actual backend API
+ * 
+ * TO SWITCH BETWEEN MOCK AND REAL BACKEND:
+ * Simply toggle the USE_MOCK_BACKEND constant below!
+ */
+
 // Application State
 const state = {
     currentPage: 'landingPage',
@@ -17,7 +42,12 @@ const state = {
 // Constants
 const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
 
-// API Configuration - Update this URL to match your backend deployment
+// API Configuration
+// Set USE_MOCK_BACKEND to true to use mock data for development/testing
+// Set to false to use the real backend API
+const USE_MOCK_BACKEND = false;
+
+// Update this URL to match your backend deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:5000' 
     : 'https://quiz-backend-production-4aaf.up.railway.app';
@@ -126,20 +156,42 @@ async function fetchQuiz() {
     try {
         showAlert('Loading quiz...', 'success');
         
-        // API call to join quiz
-        const joinResponse = await fetch(`${API_BASE_URL}/api/quiz/join/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(state.participant)
-        });
+        let joinData, questionsData;
         
-        if (!joinResponse.ok) {
-            throw new Error('Quiz not found or not active');
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            joinData = await mockBackend.mockJoinQuiz(state.quizCode, state.participant);
+            questionsData = await mockBackend.mockGetQuestions(state.quizCode);
+        } else {
+            // API call to join quiz
+            const joinResponse = await fetch(`${API_BASE_URL}/api/quiz/join/${state.quizCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(state.participant)
+            });
+            
+            if (!joinResponse.ok) {
+                throw new Error('Quiz not found or not active');
+            }
+            
+            joinData = await joinResponse.json();
+            
+            // Fetch questions separately
+            const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!questionsResponse.ok) {
+                throw new Error('Failed to load questions');
+            }
+            
+            questionsData = await questionsResponse.json();
         }
-        
-        const joinData = await joinResponse.json();
         
         // Validate quiz data
         if (!joinData?.currentQuiz) {
@@ -147,20 +199,6 @@ async function fetchQuiz() {
         }
         
         state.currentQuiz = joinData.currentQuiz;
-        
-        // Fetch questions separately
-        const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!questionsResponse.ok) {
-            throw new Error('Failed to load questions');
-        }
-        
-        const questionsData = await questionsResponse.json();
         
         // Validate questions data
         if (!questionsData?.questions || !Array.isArray(questionsData.questions)) {
@@ -319,25 +357,34 @@ async function submitQuiz(autoSubmit = false) {
             };
         });
         
-        // Submit to backend with correct payload structure
-        const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: state.participant.name,
-                branch: state.participant.branch,
-                rollNo: state.participant.roll,
-                answers: answersArray
-            })
-        });
+        const submissionData = {
+            name: state.participant.name,
+            branch: state.participant.branch,
+            rollNo: state.participant.roll,
+            answers: answersArray
+        };
         
-        if (!response.ok) {
-            throw new Error('Failed to submit quiz');
+        let result;
+        
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            result = await mockBackend.mockSubmitQuiz(state.quizCode, submissionData);
+        } else {
+            // Submit to backend with correct payload structure
+            const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(submissionData)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to submit quiz');
+            }
+            
+            result = await response.json();
         }
-        
-        const result = await response.json();
         
         // Validate result data with safe access
         const score = result?.score ?? 0;
@@ -435,19 +482,26 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
+        let data;
         
-        if (!response.ok) {
-            throw new Error('Invalid credentials');
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            data = await mockBackend.mockLogin(email, password);
+        } else {
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Invalid credentials');
+            }
+            
+            data = await response.json();
         }
-        
-        const data = await response.json();
         
         // Validate response data
         if (!data?.token || !data?.user) {
@@ -474,19 +528,26 @@ async function handleRegister(event) {
     const password = document.getElementById('registerPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, email, password })
-        });
+        let data;
         
-        if (!response.ok) {
-            throw new Error('Registration failed');
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            data = await mockBackend.mockRegister(name, email, password);
+        } else {
+            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Registration failed');
+            }
+            
+            data = await response.json();
         }
-        
-        const data = await response.json();
         
         // Validate response data
         if (!data?.token || !data?.user) {
@@ -642,25 +703,37 @@ async function handleCreateTest(event) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/create`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
+        let data;
+        
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            data = await mockBackend.mockCreateQuiz({
                 title,
                 description,
                 timeLimit,
                 questions
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to create test');
+            }, localStorage.getItem('token'));
+        } else {
+            const response = await fetch(`${API_BASE_URL}/api/quiz/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    timeLimit,
+                    questions
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to create test');
+            }
+            
+            data = await response.json();
         }
-        
-        const data = await response.json();
         
         // Validate response data
         if (!data?.code) {
@@ -732,15 +805,20 @@ async function deleteTest(code) {
     if (!confirm('Are you sure you want to delete this test?')) return;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/delete/${code}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            await mockBackend.mockDeleteQuiz(code, localStorage.getItem('token'));
+        } else {
+            const response = await fetch(`${API_BASE_URL}/api/quiz/delete/${code}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete test');
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete test');
         }
         
         // Remove from localStorage
@@ -759,31 +837,39 @@ async function viewResults(code) {
     navigateTo('testResultsPage');
     
     try {
-        // Fetch leaderboard from correct endpoint
-        const leaderboardResponse = await fetch(`${API_BASE_URL}/api/quiz/leaderboard/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+        let leaderboardData, summaryData;
+        
+        // Use mock backend or real API based on configuration
+        if (USE_MOCK_BACKEND) {
+            leaderboardData = await mockBackend.mockGetLeaderboard(code, localStorage.getItem('token'));
+            summaryData = await mockBackend.mockGetSummary(code, localStorage.getItem('token'));
+        } else {
+            // Fetch leaderboard from correct endpoint
+            const leaderboardResponse = await fetch(`${API_BASE_URL}/api/quiz/leaderboard/${code}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (!leaderboardResponse.ok) {
+                throw new Error('Failed to load leaderboard');
             }
-        });
-        
-        if (!leaderboardResponse.ok) {
-            throw new Error('Failed to load leaderboard');
-        }
-        
-        const leaderboardData = await leaderboardResponse.json();
-        
-        // Fetch summary from correct endpoint
-        const summaryResponse = await fetch(`${API_BASE_URL}/api/quiz/summary/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            
+            leaderboardData = await leaderboardResponse.json();
+            
+            // Fetch summary from correct endpoint
+            const summaryResponse = await fetch(`${API_BASE_URL}/api/quiz/summary/${code}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (!summaryResponse.ok) {
+                throw new Error('Failed to load summary');
             }
-        });
-        
-        if (!summaryResponse.ok) {
-            throw new Error('Failed to load summary');
+            
+            summaryData = await summaryResponse.json();
         }
-        
-        const summaryData = await summaryResponse.json();
         
         // Safe access to response data
         displayLeaderboard(leaderboardData?.leaderboard || []);
