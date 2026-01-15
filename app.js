@@ -14,6 +14,9 @@ const state = {
     questionCount: 0
 };
 
+// Constants
+const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
+
 // API Configuration - Update this URL to match your backend deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:5000' 
@@ -160,7 +163,7 @@ async function fetchQuiz() {
             const now = Date.now();
             state.timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
         } else {
-            state.timeRemaining = 600; // fallback to 10 minutes
+            state.timeRemaining = DEFAULT_QUIZ_TIME_SECONDS;
         }
         
         // Start quiz
@@ -278,10 +281,16 @@ async function submitQuiz(autoSubmit = false) {
     
     try {
         // Convert answers object to array format
-        const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => ({
-            questionIndex: parseInt(questionIndex),
-            selectedOption: optionIndex
-        }));
+        const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => {
+            const parsedIndex = parseInt(questionIndex, 10);
+            if (isNaN(parsedIndex)) {
+                throw new Error('Invalid question index');
+            }
+            return {
+                questionIndex: parsedIndex,
+                selectedOption: optionIndex
+            };
+        });
         
         // Submit to backend with correct payload structure
         const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
@@ -642,7 +651,8 @@ async function loadTests() {
     container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
     
     try {
-        // Load tests from localStorage since /api/quiz/my-tests doesn't exist
+        // Use localStorage for quiz tracking since backend doesn't provide a "my-tests" list endpoint.
+        // Real endpoints (leaderboard, summary) are used when viewing individual quiz results.
         const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
         state.testData = savedTests;
         
