@@ -14,8 +14,10 @@ const state = {
     questionCount: 0
 };
 
-// API Configuration
-const API_BASE_URL = 'https://quiz-backend-api.herokuapp.com/api'; // Update with actual backend URL
+// API Configuration - Update this URL to match your backend deployment
+const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api' 
+    : 'https://quiz-backend-api.herokuapp.com/api';
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -253,15 +255,8 @@ async function submitQuiz(autoSubmit = false) {
     }
     
     try {
-        // Calculate score
-        let score = 0;
-        state.questions.forEach((question, index) => {
-            if (state.answers[index] === question.correctAnswer) {
-                score++;
-            }
-        });
-        
-        // Submit to backend
+        // Submit to backend - score calculation happens server-side for security
+        // The server will validate answers and calculate the actual score
         const response = await fetch(`${API_BASE_URL}/quiz/submit`, {
             method: 'POST',
             headers: {
@@ -271,8 +266,6 @@ async function submitQuiz(autoSubmit = false) {
                 quizCode: state.quizCode,
                 participant: state.participant,
                 answers: state.answers,
-                score: score,
-                totalQuestions: state.questions.length,
                 tabSwitches: state.tabSwitchCount
             })
         });
@@ -281,8 +274,10 @@ async function submitQuiz(autoSubmit = false) {
             throw new Error('Failed to submit quiz');
         }
         
-        // Show results
-        showResults(score, state.questions.length);
+        const result = await response.json();
+        
+        // Show results with server-calculated score
+        showResults(result.score, result.totalQuestions);
     } catch (error) {
         showAlert(error.message || 'Failed to submit quiz', 'error');
     }
@@ -338,9 +333,9 @@ function setupAntiCheat() {
     document.addEventListener('keydown', (e) => {
         if (state.currentPage === 'quizPage') {
             // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-            if (e.keyCode === 123 || 
-                (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) ||
-                (e.ctrlKey && e.keyCode === 85)) {
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
+                (e.ctrlKey && e.key === 'U')) {
                 e.preventDefault();
                 showAlert('Developer tools are disabled during quiz', 'warning');
             }
@@ -447,7 +442,13 @@ function switchDashboardTab(tabName) {
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    // Find the button that matches the tab name and make it active
+    const buttons = document.querySelectorAll('.nav-btn');
+    buttons.forEach(btn => {
+        if (btn.textContent.toLowerCase().replace(' ', '') === tabName.toLowerCase().replace('tab', '')) {
+            btn.classList.add('active');
+        }
+    });
     
     // Update tabs
     document.querySelectorAll('.dashboard-tab').forEach(tab => {
@@ -792,7 +793,13 @@ function switchResultsTab(tab) {
         t.classList.remove('active');
     });
     
-    event.target.classList.add('active');
+    // Find the button that matches the tab name and make it active
+    const buttons = document.querySelectorAll('.results-tabs .tab');
+    buttons.forEach(btn => {
+        if (btn.textContent.toLowerCase() === tab.toLowerCase()) {
+            btn.classList.add('active');
+        }
+    });
     document.getElementById(`${tab}Tab`).classList.add('active');
 }
 
