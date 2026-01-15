@@ -17,17 +17,103 @@ const state = {
 // Constants
 const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
 
-// API Configuration - Update this URL to match your backend deployment
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000' 
-    : 'https://quiz-backend-production-4aaf.up.railway.app';
+// Mock Data Storage Keys
+const STORAGE_KEYS = {
+    USERS: 'quiz_mock_users',
+    QUIZZES: 'quiz_mock_quizzes',
+    RESULTS: 'quiz_mock_results',
+    CURRENT_USER: 'quiz_current_user'
+};
+
+// Initialize Mock Data
+function initializeMockData() {
+    // Create sample quizzes if none exist
+    if (!localStorage.getItem(STORAGE_KEYS.QUIZZES)) {
+        const sampleQuizzes = [
+            {
+                code: '123456',
+                title: 'JavaScript Basics',
+                description: 'Test your knowledge of JavaScript fundamentals',
+                timeLimit: 600,
+                creatorEmail: 'demo@example.com',
+                questions: [
+                    {
+                        text: 'What is the output of: typeof null?',
+                        options: ['null', 'undefined', 'object', 'number'],
+                        correctAnswer: 2
+                    },
+                    {
+                        text: 'Which method is used to add elements to the end of an array?',
+                        options: ['push()', 'pop()', 'shift()', 'unshift()'],
+                        correctAnswer: 0
+                    },
+                    {
+                        text: 'What does "=== " operator do?',
+                        options: ['Assignment', 'Comparison without type check', 'Comparison with type check', 'None of the above'],
+                        correctAnswer: 2
+                    }
+                ]
+            },
+            {
+                code: '789012',
+                title: 'Web Development Quiz',
+                description: 'Test your HTML, CSS, and JavaScript knowledge',
+                timeLimit: 900,
+                creatorEmail: 'demo@example.com',
+                questions: [
+                    {
+                        text: 'What does HTML stand for?',
+                        options: ['Hyper Text Markup Language', 'High Tech Modern Language', 'Home Tool Markup Language', 'Hyperlinks and Text Markup Language'],
+                        correctAnswer: 0
+                    },
+                    {
+                        text: 'Which CSS property is used to change text color?',
+                        options: ['text-color', 'font-color', 'color', 'text-style'],
+                        correctAnswer: 2
+                    },
+                    {
+                        text: 'What is the correct syntax for a JavaScript function?',
+                        options: ['function myFunc()', 'def myFunc()', 'function: myFunc()', 'func myFunc()'],
+                        correctAnswer: 0
+                    },
+                    {
+                        text: 'Which HTML tag is used for creating a hyperlink?',
+                        options: ['<link>', '<a>', '<href>', '<hyperlink>'],
+                        correctAnswer: 1
+                    }
+                ]
+            }
+        ];
+        localStorage.setItem(STORAGE_KEYS.QUIZZES, JSON.stringify(sampleQuizzes));
+    }
+    
+    // Create sample users if none exist
+    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+        const sampleUsers = [
+            {
+                email: 'demo@example.com',
+                password: 'demo123',
+                name: 'Demo User'
+            }
+        ];
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sampleUsers));
+    }
+    
+    // Initialize results storage if it doesn't exist
+    if (!localStorage.getItem(STORAGE_KEYS.RESULTS)) {
+        localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify({}));
+    }
+}
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-    // Check for saved auth token
-    const token = localStorage.getItem('token');
-    if (token) {
-        state.currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
+    // Initialize mock data
+    initializeMockData();
+    
+    // Check for saved current user
+    const currentUserData = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (currentUserData) {
+        state.currentUser = JSON.parse(currentUserData);
     }
 
     // Apply saved theme
@@ -118,53 +204,30 @@ function submitJoinDetails(event) {
     // Save participant details
     state.participant = { name, roll, branch };
     
-    // Fetch quiz and start
-    fetchQuiz();
+    // Fetch quiz from mock data
+    fetchQuizMock();
 }
 
-async function fetchQuiz() {
+function fetchQuizMock() {
     try {
         showAlert('Loading quiz...', 'success');
         
-        // API call to join quiz
-        const joinResponse = await fetch(`${API_BASE_URL}/api/quiz/join/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(state.participant)
-        });
+        // Get quizzes from local storage
+        const quizzes = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUIZZES) || '[]');
+        const quiz = quizzes.find(q => q.code === state.quizCode);
         
-        if (!joinResponse.ok) {
-            throw new Error('Quiz not found or not active');
+        if (!quiz) {
+            throw new Error('Quiz not found. Try code: 123456 or 789012');
         }
         
-        const joinData = await joinResponse.json();
-        state.currentQuiz = joinData.currentQuiz;
-        
-        // Fetch questions separately
-        const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!questionsResponse.ok) {
-            throw new Error('Failed to load questions');
-        }
-        
-        const questionsData = await questionsResponse.json();
-        state.questions = questionsData.questions;
-        
-        // Set timer from server endTime
-        if (state.currentQuiz.endTime) {
-            const endTime = new Date(state.currentQuiz.endTime).getTime();
-            const now = Date.now();
-            state.timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-        } else {
-            state.timeRemaining = DEFAULT_QUIZ_TIME_SECONDS;
-        }
+        // Set current quiz data
+        state.currentQuiz = {
+            title: quiz.title,
+            description: quiz.description,
+            timeLimit: quiz.timeLimit
+        };
+        state.questions = quiz.questions;
+        state.timeRemaining = quiz.timeLimit;
         
         // Start quiz
         startQuiz();
@@ -172,6 +235,11 @@ async function fetchQuiz() {
         showAlert(error.message || 'Failed to load quiz', 'error');
         navigateTo('joinPage');
     }
+}
+
+async function fetchQuiz() {
+    // Replaced with mock implementation
+    fetchQuizMock();
 }
 
 function startQuiz() {
@@ -280,40 +348,48 @@ async function submitQuiz(autoSubmit = false) {
     }
     
     try {
-        // Convert answers object to array format
-        const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => {
-            const parsedIndex = parseInt(questionIndex, 10);
-            if (isNaN(parsedIndex)) {
-                throw new Error(`Invalid question index: ${questionIndex}`);
+        // Calculate score locally
+        let score = 0;
+        const answersArray = [];
+        
+        state.questions.forEach((question, index) => {
+            const userAnswer = state.answers[index];
+            if (userAnswer !== undefined) {
+                answersArray.push({
+                    questionIndex: index,
+                    selectedOption: userAnswer
+                });
+                
+                // Check if answer is correct
+                if (userAnswer === question.correctAnswer) {
+                    score++;
+                }
             }
-            return {
-                questionIndex: parsedIndex,
-                selectedOption: optionIndex
-            };
         });
         
-        // Submit to backend with correct payload structure
-        const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: state.participant.name,
-                branch: state.participant.branch,
-                rollNo: state.participant.roll,
-                answers: answersArray
-            })
-        });
+        const totalQuestions = state.questions.length;
         
-        if (!response.ok) {
-            throw new Error('Failed to submit quiz');
+        // Save result to local storage
+        const results = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESULTS) || '{}');
+        if (!results[state.quizCode]) {
+            results[state.quizCode] = [];
         }
         
-        const result = await response.json();
+        const resultEntry = {
+            name: state.participant.name,
+            roll: state.participant.roll,
+            branch: state.participant.branch,
+            score: score,
+            total: totalQuestions,
+            timestamp: new Date().toISOString(),
+            answers: answersArray
+        };
         
-        // Show results with server-calculated score
-        showResults(result.score, result.totalQuestions);
+        results[state.quizCode].push(resultEntry);
+        localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
+        
+        // Show results
+        showResults(score, totalQuestions);
     } catch (error) {
         showAlert(error.message || 'Failed to submit quiz', 'error');
     }
@@ -404,24 +480,18 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
+        // Get users from local storage
+        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+        const user = users.find(u => u.email === email && u.password === password);
         
-        if (!response.ok) {
-            throw new Error('Invalid credentials');
+        if (!user) {
+            throw new Error('Invalid credentials. Try: demo@example.com / demo123');
         }
         
-        const data = await response.json();
-        
-        // Save auth data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-        state.currentUser = data.user;
+        // Save current user (without password)
+        const userData = { email: user.email, name: user.name };
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userData));
+        state.currentUser = userData;
         
         showAlert('Login successful!', 'success');
         navigateTo('dashboardPage');
@@ -438,24 +508,23 @@ async function handleRegister(event) {
     const password = document.getElementById('registerPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, email, password })
-        });
+        // Get users from local storage
+        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
         
-        if (!response.ok) {
-            throw new Error('Registration failed');
+        // Check if user already exists
+        if (users.find(u => u.email === email)) {
+            throw new Error('User already exists with this email');
         }
         
-        const data = await response.json();
+        // Add new user
+        const newUser = { email, password, name };
+        users.push(newUser);
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
         
-        // Save auth data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-        state.currentUser = data.user;
+        // Save current user (without password)
+        const userData = { email, name };
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userData));
+        state.currentUser = userData;
         
         showAlert('Registration successful!', 'success');
         navigateTo('dashboardPage');
@@ -465,8 +534,7 @@ async function handleRegister(event) {
 }
 
 function handleLogout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userData');
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     state.currentUser = null;
     showAlert('Logged out successfully', 'success');
     navigateTo('landingPage');
@@ -601,37 +669,26 @@ async function handleCreateTest(event) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/create`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                title,
-                description,
-                timeLimit,
-                questions
-            })
-        });
+        // Generate a random 6-digit code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
         
-        if (!response.ok) {
-            throw new Error('Failed to create test');
-        }
+        // Get existing quizzes
+        const quizzes = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUIZZES) || '[]');
         
-        const data = await response.json();
-        
-        // Save to localStorage for tracking
-        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
-        savedTests.push({
-            code: data.code,
+        // Add new quiz
+        const newQuiz = {
+            code,
             title,
             description,
-            timeLimit
-        });
-        localStorage.setItem('myQuizzes', JSON.stringify(savedTests));
+            timeLimit,
+            creatorEmail: state.currentUser.email,
+            questions
+        };
         
-        showAlert(`Test created! Code: ${data.code}`, 'success');
+        quizzes.push(newQuiz);
+        localStorage.setItem(STORAGE_KEYS.QUIZZES, JSON.stringify(quizzes));
+        
+        showAlert(`Test created! Code: ${code}`, 'success');
         
         // Reset form
         document.getElementById('createTestForm').reset();
@@ -651,23 +708,26 @@ async function loadTests() {
     container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
     
     try {
-        // Use localStorage for quiz tracking since backend doesn't provide a "my-tests" list endpoint.
-        // Real endpoints (leaderboard, summary) are used when viewing individual quiz results.
-        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
-        state.testData = savedTests;
+        // Get all quizzes from local storage
+        const allQuizzes = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUIZZES) || '[]');
         
-        if (savedTests.length === 0) {
+        // Filter quizzes created by current user
+        const userQuizzes = allQuizzes.filter(q => q.creatorEmail === state.currentUser.email);
+        state.testData = userQuizzes;
+        
+        if (userQuizzes.length === 0) {
             container.innerHTML = '<p>No tests created yet. Create your first test!</p>';
             return;
         }
         
-        container.innerHTML = savedTests.map(test => `
+        container.innerHTML = userQuizzes.map(test => `
             <div class="test-card">
                 <div class="test-card-header">
                     <div class="test-card-title">
                         <h3>${test.title}</h3>
                         <p>${test.description || 'No description'}</p>
                         <p><strong>Code:</strong> ${test.code}</p>
+                        <p><strong>Questions:</strong> ${test.questions.length}</p>
                     </div>
                 </div>
                 <div class="test-card-actions">
@@ -686,21 +746,17 @@ async function deleteTest(code) {
     if (!confirm('Are you sure you want to delete this test?')) return;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/delete/${code}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
+        // Get all quizzes
+        const quizzes = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUIZZES) || '[]');
         
-        if (!response.ok) {
-            throw new Error('Failed to delete test');
-        }
+        // Filter out the quiz to delete
+        const updatedQuizzes = quizzes.filter(q => q.code !== code);
+        localStorage.setItem(STORAGE_KEYS.QUIZZES, JSON.stringify(updatedQuizzes));
         
-        // Remove from localStorage
-        const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
-        const updatedTests = savedTests.filter(test => test.code !== code);
-        localStorage.setItem('myQuizzes', JSON.stringify(updatedTests));
+        // Also remove results for this quiz
+        const results = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESULTS) || '{}');
+        delete results[code];
+        localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
         
         showAlert('Test deleted successfully', 'success');
         loadTests();
@@ -713,34 +769,35 @@ async function viewResults(code) {
     navigateTo('testResultsPage');
     
     try {
-        // Fetch leaderboard from correct endpoint
-        const leaderboardResponse = await fetch(`${API_BASE_URL}/api/quiz/leaderboard/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+        // Get results from local storage
+        const allResults = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESULTS) || '{}');
+        const quizResults = allResults[code] || [];
+        
+        // Sort by score (descending) for leaderboard
+        const leaderboard = [...quizResults].sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score;
             }
-        });
+            // If scores are equal, sort by timestamp (earlier is better)
+            return new Date(a.timestamp) - new Date(b.timestamp);
+        }).map(result => ({
+            name: result.name,
+            score: result.score,
+            total: result.total,
+            time: new Date(result.timestamp).toLocaleTimeString()
+        }));
         
-        if (!leaderboardResponse.ok) {
-            throw new Error('Failed to load leaderboard');
-        }
+        // Prepare participants list
+        const participants = quizResults.map(result => ({
+            name: result.name,
+            roll: result.roll,
+            branch: result.branch,
+            score: result.score,
+            total: result.total
+        }));
         
-        const leaderboardData = await leaderboardResponse.json();
-        
-        // Fetch summary from correct endpoint
-        const summaryResponse = await fetch(`${API_BASE_URL}/api/quiz/summary/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (!summaryResponse.ok) {
-            throw new Error('Failed to load summary');
-        }
-        
-        const summaryData = await summaryResponse.json();
-        
-        displayLeaderboard(leaderboardData.leaderboard || []);
-        displayParticipants(summaryData.participants || []);
+        displayLeaderboard(leaderboard);
+        displayParticipants(participants);
     } catch (error) {
         showAlert(error.message || 'Failed to load results', 'error');
     }
