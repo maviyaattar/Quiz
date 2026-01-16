@@ -18,7 +18,7 @@ const mockStorage = {
             id: 1,
             name: 'Demo User',
             email: 'demo@example.com',
-            password: 'demo123'
+            password: 'demo123' // WARNING: Plain text password for demo only! Real apps should use bcrypt or similar hashing
         }
     ],
     quizzes: [
@@ -482,6 +482,8 @@ async function handleLogin(event) {
         // Find user in mock storage
         const user = mockStorage.users.find(u => u.email === email);
         
+        // WARNING: Plain text password comparison for demo only! 
+        // Real apps should use bcrypt.compare() or similar secure hashing
         if (!user || user.password !== password) {
             throw new Error('Invalid credentials');
         }
@@ -522,6 +524,8 @@ async function handleRegister(event) {
         }
         
         // Create new user
+        // WARNING: Storing plain text password for demo only!
+        // Real apps should hash password with bcrypt before storing
         const newUser = {
             id: mockStorage.users.length + 1,
             name,
