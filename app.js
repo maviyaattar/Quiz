@@ -1,3 +1,60 @@
+/**
+ * QUIZ APPLICATION - FRONTEND ONLY
+ * 
+ * This is a frontend-only quiz application that uses local mock data.
+ * All data is stored in memory and browser localStorage.
+ * 
+ * Features:
+ * - Demo user: email: demo@example.com, password: demo123
+ * - Sample quiz available with code: 123456
+ * - Create and manage quizzes (stored in browser memory during session)
+ * - All functionality works without a backend server
+ */
+
+// Mock Data Storage (simulates database in memory)
+const mockStorage = {
+    users: [
+        {
+            id: 1,
+            name: 'Demo User',
+            email: 'demo@example.com',
+            password: 'demo123'
+        }
+    ],
+    quizzes: [
+        {
+            id: '123456',
+            code: '123456',
+            title: 'Sample Quiz',
+            description: 'A sample quiz for testing',
+            timeLimit: 600,
+            creatorId: 1,
+            isActive: true,
+            startTime: new Date().toISOString(),
+            endTime: new Date(Date.now() + 600000).toISOString(),
+            questions: [
+                {
+                    text: 'What is 2 + 2?',
+                    options: ['3', '4', '5', '6'],
+                    correctAnswer: 1
+                },
+                {
+                    text: 'What is the capital of France?',
+                    options: ['London', 'Berlin', 'Paris', 'Madrid'],
+                    correctAnswer: 2
+                },
+                {
+                    text: 'Which planet is closest to the Sun?',
+                    options: ['Venus', 'Mercury', 'Earth', 'Mars'],
+                    correctAnswer: 1
+                }
+            ]
+        }
+    ],
+    submissions: [],
+    participants: []
+};
+
 // Application State
 const state = {
     currentPage: 'landingPage',
@@ -17,10 +74,14 @@ const state = {
 // Constants
 const DEFAULT_QUIZ_TIME_SECONDS = 600; // 10 minutes fallback
 
-// API Configuration - Update this URL to match your backend deployment
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000' 
-    : 'https://quiz-backend-production-4aaf.up.railway.app';
+// Helper Functions
+function generateQuizCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function generateToken(userId) {
+    return `mock_token_${userId}_${Date.now()}`;
+}
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -126,38 +187,44 @@ async function fetchQuiz() {
     try {
         showAlert('Loading quiz...', 'success');
         
-        // API call to join quiz
-        const joinResponse = await fetch(`${API_BASE_URL}/api/quiz/join/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(state.participant)
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 400));
         
-        if (!joinResponse.ok) {
+        // Find quiz in mock storage
+        const quiz = mockStorage.quizzes.find(q => q.code === state.quizCode);
+        
+        if (!quiz || !quiz.isActive) {
             throw new Error('Quiz not found or not active');
         }
         
-        const joinData = await joinResponse.json();
-        state.currentQuiz = joinData.currentQuiz;
-        
-        // Fetch questions separately
-        const questionsResponse = await fetch(`${API_BASE_URL}/api/quiz/questions/${state.quizCode}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        // Add participant to mock storage
+        mockStorage.participants.push({
+            quizCode: state.quizCode,
+            name: state.participant.name,
+            roll: state.participant.roll,
+            branch: state.participant.branch,
+            joinedAt: new Date().toISOString()
         });
         
-        if (!questionsResponse.ok) {
-            throw new Error('Failed to load questions');
-        }
+        // Set current quiz data
+        state.currentQuiz = {
+            id: quiz.id,
+            code: quiz.code,
+            title: quiz.title,
+            description: quiz.description,
+            timeLimit: quiz.timeLimit,
+            isActive: quiz.isActive,
+            startTime: quiz.startTime,
+            endTime: quiz.endTime
+        };
         
-        const questionsData = await questionsResponse.json();
-        state.questions = questionsData.questions;
+        // Set questions (without correct answers)
+        state.questions = quiz.questions.map(q => ({
+            text: q.text,
+            options: q.options
+        }));
         
-        // Set timer from server endTime
+        // Set timer from endTime
         if (state.currentQuiz.endTime) {
             const endTime = new Date(state.currentQuiz.endTime).getTime();
             const now = Date.now();
@@ -280,40 +347,45 @@ async function submitQuiz(autoSubmit = false) {
     }
     
     try {
-        // Convert answers object to array format
-        const answersArray = Object.entries(state.answers).map(([questionIndex, optionIndex]) => {
-            const parsedIndex = parseInt(questionIndex, 10);
-            if (isNaN(parsedIndex)) {
-                throw new Error(`Invalid question index: ${questionIndex}`);
-            }
-            return {
-                questionIndex: parsedIndex,
-                selectedOption: optionIndex
-            };
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Submit to backend with correct payload structure
-        const response = await fetch(`${API_BASE_URL}/api/quiz/submit/${state.quizCode}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: state.participant.name,
-                branch: state.participant.branch,
-                rollNo: state.participant.roll,
-                answers: answersArray
-            })
-        });
+        // Find the quiz with correct answers
+        const quiz = mockStorage.quizzes.find(q => q.code === state.quizCode);
         
-        if (!response.ok) {
-            throw new Error('Failed to submit quiz');
+        if (!quiz) {
+            throw new Error('Quiz not found');
         }
         
-        const result = await response.json();
+        // Calculate score
+        let score = 0;
+        Object.entries(state.answers).forEach(([questionIndex, selectedOption]) => {
+            const qIndex = parseInt(questionIndex, 10);
+            const question = quiz.questions[qIndex];
+            if (question && question.correctAnswer === selectedOption) {
+                score++;
+            }
+        });
         
-        // Show results with server-calculated score
-        showResults(result.score, result.totalQuestions);
+        const totalQuestions = quiz.questions.length;
+        
+        // Store submission
+        mockStorage.submissions.push({
+            quizCode: state.quizCode,
+            name: state.participant.name,
+            roll: state.participant.roll,
+            branch: state.participant.branch,
+            score,
+            totalQuestions,
+            submittedAt: new Date().toISOString(),
+            answers: Object.entries(state.answers).map(([questionIndex, optionIndex]) => ({
+                questionIndex: parseInt(questionIndex, 10),
+                selectedOption: optionIndex
+            }))
+        });
+        
+        // Show results
+        showResults(score, totalQuestions);
     } catch (error) {
         showAlert(error.message || 'Failed to submit quiz', 'error');
     }
@@ -404,24 +476,27 @@ async function handleLogin(event) {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        if (!response.ok) {
+        // Find user in mock storage
+        const user = mockStorage.users.find(u => u.email === email);
+        
+        if (!user || user.password !== password) {
             throw new Error('Invalid credentials');
         }
         
-        const data = await response.json();
+        const token = generateToken(user.id);
+        const userData = {
+            id: user.id,
+            name: user.name,
+            email: user.email
+        };
         
         // Save auth data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-        state.currentUser = data.user;
+        localStorage.setItem('token', token);
+        localStorage.setItem('userData', JSON.stringify(userData));
+        state.currentUser = userData;
         
         showAlert('Login successful!', 'success');
         navigateTo('dashboardPage');
@@ -438,24 +513,35 @@ async function handleRegister(event) {
     const password = document.getElementById('registerPassword').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, email, password })
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        if (!response.ok) {
-            throw new Error('Registration failed');
+        // Check if user already exists
+        if (mockStorage.users.find(u => u.email === email)) {
+            throw new Error('User already exists');
         }
         
-        const data = await response.json();
+        // Create new user
+        const newUser = {
+            id: mockStorage.users.length + 1,
+            name,
+            email,
+            password
+        };
+        
+        mockStorage.users.push(newUser);
+        
+        const token = generateToken(newUser.id);
+        const userData = {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email
+        };
         
         // Save auth data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-        state.currentUser = data.user;
+        localStorage.setItem('token', token);
+        localStorage.setItem('userData', JSON.stringify(userData));
+        state.currentUser = userData;
         
         showAlert('Registration successful!', 'success');
         navigateTo('dashboardPage');
@@ -601,37 +687,39 @@ async function handleCreateTest(event) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/create`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                title,
-                description,
-                timeLimit,
-                questions
-            })
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        if (!response.ok) {
-            throw new Error('Failed to create test');
-        }
+        const code = generateQuizCode();
+        const validTimeLimit = typeof timeLimit === 'number' && timeLimit > 0 ? timeLimit : 600;
         
-        const data = await response.json();
+        // Create new quiz in mock storage
+        const newQuiz = {
+            id: code,
+            code,
+            title,
+            description,
+            timeLimit: validTimeLimit,
+            creatorId: state.currentUser?.id || 1,
+            isActive: true,
+            startTime: new Date().toISOString(),
+            endTime: new Date(Date.now() + validTimeLimit * 1000).toISOString(),
+            questions
+        };
+        
+        mockStorage.quizzes.push(newQuiz);
         
         // Save to localStorage for tracking
         const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
         savedTests.push({
-            code: data.code,
+            code,
             title,
             description,
-            timeLimit
+            timeLimit: validTimeLimit
         });
         localStorage.setItem('myQuizzes', JSON.stringify(savedTests));
         
-        showAlert(`Test created! Code: ${data.code}`, 'success');
+        showAlert(`Test created! Code: ${code}`, 'success');
         
         // Reset form
         document.getElementById('createTestForm').reset();
@@ -686,16 +774,18 @@ async function deleteTest(code) {
     if (!confirm('Are you sure you want to delete this test?')) return;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/quiz/delete/${code}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        if (!response.ok) {
-            throw new Error('Failed to delete test');
+        // Remove from mock storage
+        const index = mockStorage.quizzes.findIndex(q => q.code === code);
+        if (index !== -1) {
+            mockStorage.quizzes.splice(index, 1);
         }
+        
+        // Remove related submissions and participants
+        mockStorage.submissions = mockStorage.submissions.filter(s => s.quizCode !== code);
+        mockStorage.participants = mockStorage.participants.filter(p => p.quizCode !== code);
         
         // Remove from localStorage
         const savedTests = JSON.parse(localStorage.getItem('myQuizzes') || '[]');
@@ -713,34 +803,47 @@ async function viewResults(code) {
     navigateTo('testResultsPage');
     
     try {
-        // Fetch leaderboard from correct endpoint
-        const leaderboardResponse = await fetch(`${API_BASE_URL}/api/quiz/leaderboard/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        if (!leaderboardResponse.ok) {
-            throw new Error('Failed to load leaderboard');
+        // Find quiz in mock storage
+        const quiz = mockStorage.quizzes.find(q => q.code === code);
+        
+        if (!quiz) {
+            throw new Error('Quiz not found');
         }
         
-        const leaderboardData = await leaderboardResponse.json();
+        // Get submissions for this quiz and sort by score
+        const submissions = mockStorage.submissions
+            .filter(s => s.quizCode === code)
+            .sort((a, b) => b.score - a.score);
         
-        // Fetch summary from correct endpoint
-        const summaryResponse = await fetch(`${API_BASE_URL}/api/quiz/summary/${code}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
+        const leaderboard = submissions.map(s => ({
+            name: s.name,
+            score: s.score,
+            total: s.totalQuestions,
+            time: s.submittedAt
+        }));
         
-        if (!summaryResponse.ok) {
-            throw new Error('Failed to load summary');
-        }
+        // Get all participants and their submissions
+        const participants = mockStorage.participants
+            .filter(p => p.quizCode === code)
+            .map(p => {
+                const submission = mockStorage.submissions.find(
+                    s => s.quizCode === code && s.name === p.name && s.roll === p.roll
+                );
+                
+                return {
+                    name: p.name,
+                    roll: p.roll,
+                    branch: p.branch,
+                    score: submission ? submission.score : 0,
+                    total: quiz.questions.length
+                };
+            });
         
-        const summaryData = await summaryResponse.json();
-        
-        displayLeaderboard(leaderboardData.leaderboard || []);
-        displayParticipants(summaryData.participants || []);
+        displayLeaderboard(leaderboard);
+        displayParticipants(participants);
     } catch (error) {
         showAlert(error.message || 'Failed to load results', 'error');
     }

@@ -1,6 +1,6 @@
 # Maviya Attar Quiz Platform
 
-A complete, mobile-first responsive quiz application built with vanilla HTML, CSS, and JavaScript (no frameworks). Create interactive quizzes and participate in real-time assessments with built-in anti-cheat features.
+A complete, mobile-first responsive quiz application built with vanilla HTML, CSS, and JavaScript (no frameworks). This is a frontend-only demo application that runs entirely in the browser without requiring a backend server.
 
 ## 🚀 Features
 
@@ -17,7 +17,7 @@ A complete, mobile-first responsive quiz application built with vanilla HTML, CS
 - **Real-time Results**: See your score immediately after submission
 
 ### For Creators (Create Quiz)
-- **Authentication**: Secure login/register system
+- **Authentication**: Login/register system (demo credentials available)
 - **Dashboard**: Three main sections
   - **Create Test**: Build quizzes with custom questions and options
   - **My Tests**: Manage all your quizzes
@@ -26,7 +26,6 @@ A complete, mobile-first responsive quiz application built with vanilla HTML, CS
   - Set title, description, and time limits
   - Add/delete questions dynamically
   - Multiple choice options
-  - Start/stop tests
   - View results and leaderboards
   - Track participants
 - **Theme Support**: Light and dark themes
@@ -46,15 +45,14 @@ A complete, mobile-first responsive quiz application built with vanilla HTML, CS
 Quiz/
 ├── index.html      # Main HTML structure
 ├── styles.css      # All styling (mobile-first)
-├── app.js          # Application logic
+├── app.js          # Application logic with mock data
 └── README.md       # Documentation
 ```
 
 ## 🛠️ Setup & Installation
 
 ### Prerequisites
-- A web browser (Chrome, Firefox, Safari, Edge)
-- A backend server (see Backend Integration)
+- A modern web browser (Chrome, Firefox, Safari, Edge)
 
 ### Local Development
 
@@ -86,35 +84,22 @@ php -S localhost:8080
 http://localhost:8080
 ```
 
-## 🔧 Backend Integration
-
-The frontend is configured to work with a Quiz backend API. Update the API URL in `app.js`:
-
-```javascript
-const API_BASE_URL = 'https://your-backend-url.com/api';
-```
-
-### Required Backend Endpoints
-
-**Authentication:**
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
-
-**Quiz Management:**
-- `POST /api/quiz/join/{code}` - Join a quiz
-- `POST /api/quiz/submit` - Submit quiz answers
-- `POST /api/quiz/create` - Create a new quiz
-- `GET /api/quiz/my-tests` - Get creator's tests
-- `GET /api/quiz/{id}/results` - Get quiz results
-- `PUT /api/quiz/{id}/status` - Update quiz status
-- `DELETE /api/quiz/{id}` - Delete a quiz
-
 ## 🎯 Usage
+
+### Demo Credentials
+
+**Demo User Account:**
+- Email: `demo@example.com`
+- Password: `demo123`
+
+**Sample Quiz:**
+- Quiz Code: `123456`
+- Questions: 3 sample questions
 
 ### For Participants
 
 1. Click "Join Quiz" on the landing page
-2. Enter the 6-digit quiz code
+2. Enter the 6-digit quiz code (try `123456` for demo)
 3. Fill in your details (name, roll number, branch)
 4. Answer the questions within the time limit
 5. Submit and view your score
@@ -122,13 +107,20 @@ const API_BASE_URL = 'https://your-backend-url.com/api';
 ### For Creators
 
 1. Click "Create Quiz" on the landing page
-2. Login or register an account
+2. Login with demo credentials or register a new account
 3. Navigate to "Create Test" in the dashboard
 4. Fill in quiz details and add questions
 5. Submit to generate a unique quiz code
 6. Share the code with participants
-7. Start the quiz from "My Tests"
-8. View results and leaderboard after completion
+7. View results and leaderboard from "My Tests"
+
+## 💾 Data Storage
+
+This application uses:
+- **In-memory storage**: Quiz data and submissions during the current session
+- **localStorage**: User authentication tokens and created quiz tracking
+
+**Note**: All data is stored locally in your browser. Refreshing the page will reset quiz data but preserve your created quizzes list and authentication state.
 
 ## 🎨 Customization
 
@@ -156,13 +148,9 @@ if (state.tabSwitchCount >= 3) {
 }
 ```
 
-## 🔒 Security Features
+### Adding More Demo Quizzes
 
-- **Server-side Score Calculation**: Prevents client-side manipulation
-- **JWT Authentication**: Secure user sessions
-- **Anti-Cheat Measures**: Multiple layers of protection
-- **Input Validation**: Form validation on all inputs
-- **XSS Protection**: Proper data sanitization
+Edit the `mockStorage.quizzes` array in `app.js` to add more sample quizzes.
 
 ## 📱 Browser Support
 
@@ -186,7 +174,7 @@ This project is open source and available under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- Built as part of a learning project
+- Built as a learning project and frontend demo
 - Designed with mobile-first principles
 - No external frameworks used - vanilla JavaScript only
 
