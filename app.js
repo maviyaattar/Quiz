@@ -270,10 +270,23 @@ function startTimer() {
 
 async function submitQuiz(autoSubmit = false) {
     if (!autoSubmit) {
-        const confirmed = confirm('Are you sure you want to submit your quiz?');
-        if (!confirmed) return;
+        // Use custom modal instead of browser confirm
+        showModal(
+            'Submit Quiz',
+            'Are you sure you want to submit your quiz? You cannot change your answers after submission.',
+            'Submit',
+            () => {
+                performQuizSubmission();
+            }
+        );
+        return;
     }
     
+    // Auto-submit case (timeout or too many tab switches)
+    performQuizSubmission();
+}
+
+async function performQuizSubmission() {
     // Clear timer
     if (state.timer) {
         clearInterval(state.timer);
@@ -512,29 +525,34 @@ function addQuestion() {
     questionDiv.innerHTML = `
         <div class="question-item-header">
             <h4>Question ${state.questionCount}</h4>
-            <button type="button" class="btn-delete" onclick="deleteQuestion(${state.questionCount})">Delete</button>
-        </div>
-        <div class="form-group">
-            <label>Question Text</label>
-            <input type="text" class="question-text" required placeholder="Enter question">
-        </div>
-        <div class="form-group">
-            <label>Options</label>
-            <div class="options-list" id="options-${state.questionCount}">
-                <div class="option-item">
-                    <input type="text" class="option-text" required placeholder="Option 1">
-                    <button type="button" onclick="deleteOption(this)">×</button>
-                </div>
-                <div class="option-item">
-                    <input type="text" class="option-text" required placeholder="Option 2">
-                    <button type="button" onclick="deleteOption(this)">×</button>
-                </div>
+            <div class="question-actions">
+                <button type="button" class="btn-edit" onclick="toggleEditQuestion(${state.questionCount})">Edit</button>
+                <button type="button" class="btn-delete" onclick="deleteQuestion(${state.questionCount})">Delete</button>
             </div>
-            <button type="button" class="btn-add-option" onclick="addOption(${state.questionCount})">+ Add Option</button>
         </div>
-        <div class="form-group">
-            <label>Correct Answer (Option Number)</label>
-            <input type="number" class="correct-answer" required placeholder="e.g., 1" min="1">
+        <div class="question-content" id="question-content-${state.questionCount}">
+            <div class="form-group">
+                <label>Question Text</label>
+                <input type="text" class="question-text" required placeholder="Enter question">
+            </div>
+            <div class="form-group">
+                <label>Options</label>
+                <div class="options-list" id="options-${state.questionCount}">
+                    <div class="option-item">
+                        <input type="text" class="option-text" required placeholder="Option 1">
+                        <button type="button" onclick="deleteOption(this)">×</button>
+                    </div>
+                    <div class="option-item">
+                        <input type="text" class="option-text" required placeholder="Option 2">
+                        <button type="button" onclick="deleteOption(this)">×</button>
+                    </div>
+                </div>
+                <button type="button" class="btn-add-option" onclick="addOption(${state.questionCount})">+ Add Option</button>
+            </div>
+            <div class="form-group">
+                <label>Correct Answer (Option Number)</label>
+                <input type="number" class="correct-answer" required placeholder="e.g., 1" min="1">
+            </div>
         </div>
     `;
     
@@ -547,6 +565,35 @@ function deleteQuestion(questionId) {
         element.remove();
     }
 }
+
+function toggleEditQuestion(questionId) {
+    const questionDiv = document.getElementById(`question-${questionId}`);
+    const content = document.getElementById(`question-content-${questionId}`);
+    const editBtn = questionDiv.querySelector('.btn-edit');
+    
+    if (content.classList.contains('edit-mode')) {
+        // Exit edit mode
+        content.classList.remove('edit-mode');
+        editBtn.textContent = 'Edit';
+        editBtn.classList.remove('editing');
+        
+        // Enable all inputs
+        const inputs = content.querySelectorAll('input');
+        inputs.forEach(input => input.disabled = false);
+    } else {
+        // Enter edit mode
+        content.classList.add('edit-mode');
+        editBtn.textContent = 'Done';
+        editBtn.classList.add('editing');
+        
+        // Focus on the question text input
+        const questionText = content.querySelector('.question-text');
+        if (questionText) {
+            questionText.focus();
+        }
+    }
+}
+
 
 function addOption(questionId) {
     const container = document.getElementById(`options-${questionId}`);
@@ -857,6 +904,45 @@ function changeTheme(theme) {
     localStorage.setItem('theme', theme);
     document.body.classList.toggle('dark-theme', theme === 'dark');
     showAlert(`Theme changed to ${theme}`, 'success');
+}
+
+// Modal Functions
+let modalCallback = null;
+
+function showModal(title, message, confirmText = 'Confirm', onConfirm = null) {
+    const modal = document.getElementById('modalContainer');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    confirmBtn.textContent = confirmText;
+    modalCallback = onConfirm;
+    
+    modal.style.display = 'flex';
+    
+    // Add animation
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+}
+
+function closeModal() {
+    const modal = document.getElementById('modalContainer');
+    modal.classList.remove('active');
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+        modalCallback = null;
+    }, 300);
+}
+
+function confirmModal() {
+    if (modalCallback) {
+        modalCallback();
+    }
+    closeModal();
 }
 
 // Initialize first question form on load
